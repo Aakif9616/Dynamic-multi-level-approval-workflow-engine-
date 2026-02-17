@@ -1,0 +1,235 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" 
+                  xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" 
+                  xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" 
+                  xmlns:camunda="http://camunda.org/schema/1.0/bpmn" 
+                  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+                  xmlns:di="http://www.omg.org/spec/DD/20100524/DI" 
+                  id="Definitions_1" 
+                  targetNamespace="http://bpmn.io/schema/bpmn">
+  
+  <bpmn:process id="dynamicApprovalProcess" name="Dynamic Approval Process" isExecutable="true" camunda:historyTimeToLive="180">
+    
+    <bpmn:startEvent id="StartEvent" name="Start">
+      <bpmn:outgoing>Flow_Start</bpmn:outgoing>
+    </bpmn:startEvent>
+    
+    <bpmn:sequenceFlow id="Flow_Start" sourceRef="StartEvent" targetRef="ApprovalTask" />
+    
+    <bpmn:userTask id="ApprovalTask" name="Approval Task" camunda:candidateGroups="${workflowLevels[currentLevel]['role']}">
+      <bpmn:incoming>Flow_Start</bpmn:incoming>
+      <bpmn:incoming>Flow_QueryResolved</bpmn:incoming>
+      <bpmn:outgoing>Flow_Decision</bpmn:outgoing>
+    </bpmn:userTask>
+    
+    <bpmn:sequenceFlow id="Flow_Decision" sourceRef="ApprovalTask" targetRef="Gateway_Decision" />
+    
+    <bpmn:exclusiveGateway id="Gateway_Decision" name="Decision?" default="Flow_Approve">
+      <bpmn:incoming>Flow_Decision</bpmn:incoming>
+      <bpmn:outgoing>Flow_Reject</bpmn:outgoing>
+      <bpmn:outgoing>Flow_Query</bpmn:outgoing>
+      <bpmn:outgoing>Flow_Approve</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    
+    <bpmn:sequenceFlow id="Flow_Reject" name="Rejected" sourceRef="Gateway_Decision" targetRef="RejectionTask">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${execution.hasVariable('decision') &amp;&amp; decision == 'REJECT'}</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    
+    <bpmn:userTask id="RejectionTask" name="Handle Rejection" camunda:candidateGroups="${workflowLevels[1]['role']}">
+      <bpmn:incoming>Flow_Reject</bpmn:incoming>
+      <bpmn:outgoing>Flow_RejectionHandled</bpmn:outgoing>
+    </bpmn:userTask>
+    
+    <bpmn:sequenceFlow id="Flow_RejectionHandled" sourceRef="RejectionTask" targetRef="Gateway_RejectionDecision" />
+    
+    <bpmn:exclusiveGateway id="Gateway_RejectionDecision" name="Resubmit?" default="Flow_CancelRequest">
+      <bpmn:incoming>Flow_RejectionHandled</bpmn:incoming>
+      <bpmn:outgoing>Flow_Resubmit</bpmn:outgoing>
+      <bpmn:outgoing>Flow_CancelRequest</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    
+    <bpmn:sequenceFlow id="Flow_Resubmit" name="Resubmit" sourceRef="Gateway_RejectionDecision" targetRef="ApprovalTask">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${rejectionDecision == 'RESUBMIT'}</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    
+    <bpmn:sequenceFlow id="Flow_CancelRequest" name="Cancel" sourceRef="Gateway_RejectionDecision" targetRef="EndEvent_Rejected" />
+    
+    <bpmn:sequenceFlow id="Flow_Query" name="Query Raised" sourceRef="Gateway_Decision" targetRef="QueryTask">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${execution.hasVariable('queryRaised') &amp;&amp; queryRaised == true}</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    
+    <bpmn:sequenceFlow id="Flow_Approve" name="Approved" sourceRef="Gateway_Decision" targetRef="Gateway_NextLevel" />
+    
+    <bpmn:userTask id="QueryTask" name="Handle Query" camunda:candidateGroups="${workflowLevels[queryTargetLevel]['role']}">
+      <bpmn:incoming>Flow_Query</bpmn:incoming>
+      <bpmn:outgoing>Flow_QueryResolved</bpmn:outgoing>
+    </bpmn:userTask>
+    
+    <bpmn:sequenceFlow id="Flow_QueryResolved" sourceRef="QueryTask" targetRef="ApprovalTask" />
+    
+    <bpmn:exclusiveGateway id="Gateway_NextLevel" name="More Levels?">
+      <bpmn:incoming>Flow_Approve</bpmn:incoming>
+      <bpmn:outgoing>Flow_HasNextLevel</bpmn:outgoing>
+      <bpmn:outgoing>Flow_FinalApproval</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    
+    <bpmn:sequenceFlow id="Flow_FinalApproval" name="No" sourceRef="Gateway_NextLevel" targetRef="CallActivity_GenerateMaterialId">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${execution.hasVariable('finalApproval') &amp;&amp; finalApproval == true}</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    
+    <bpmn:sequenceFlow id="Flow_HasNextLevel" name="Yes" sourceRef="Gateway_NextLevel" targetRef="ApprovalTask">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${!execution.hasVariable('finalApproval') || finalApproval != true}</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    
+    <bpmn:callActivity id="CallActivity_GenerateMaterialId" name="Generate Material ID" calledElement="materialIdGenerationProcess">
+      <bpmn:extensionElements>
+        <camunda:in variables="all" />
+        <camunda:out variables="all" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_FinalApproval</bpmn:incoming>
+      <bpmn:outgoing>Flow_ToApproved</bpmn:outgoing>
+    </bpmn:callActivity>
+    
+    <bpmn:sequenceFlow id="Flow_ToApproved" sourceRef="CallActivity_GenerateMaterialId" targetRef="EndEvent_Approved" />
+    
+    <bpmn:endEvent id="EndEvent_Approved" name="Approved">
+      <bpmn:incoming>Flow_ToApproved</bpmn:incoming>
+    </bpmn:endEvent>
+    
+    <bpmn:endEvent id="EndEvent_Rejected" name="Rejected">
+      <bpmn:incoming>Flow_CancelRequest</bpmn:incoming>
+    </bpmn:endEvent>
+    
+  </bpmn:process>
+  
+  <bpmndi:BPMNDiagram id="BPMNDiagram_1">
+    <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="dynamicApprovalProcess">
+      <bpmndi:BPMNShape id="StartEvent_di" bpmnElement="StartEvent">
+        <dc:Bounds x="152" y="102" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="158" y="145" width="25" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_Start_di" bpmnElement="Flow_Start">
+        <di:waypoint x="188" y="120" />
+        <di:waypoint x="240" y="120" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNShape id="ApprovalTask_di" bpmnElement="ApprovalTask">
+        <dc:Bounds x="240" y="80" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_Decision_di" bpmnElement="Flow_Decision">
+        <di:waypoint x="340" y="120" />
+        <di:waypoint x="395" y="120" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNShape id="Gateway_Decision_di" bpmnElement="Gateway_Decision" isMarkerVisible="true">
+        <dc:Bounds x="395" y="95" width="50" height="50" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="395" y="71" width="50" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_Query_di" bpmnElement="Flow_Query">
+        <di:waypoint x="420" y="145" />
+        <di:waypoint x="420" y="230" />
+        <di:waypoint x="340" y="230" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="430" y="180" width="65" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Reject_di" bpmnElement="Flow_Reject">
+        <di:waypoint x="420" y="95" />
+        <di:waypoint x="420" y="50" />
+        <di:waypoint x="490" y="50" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="430" y="33" width="45" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNShape id="RejectionTask_di" bpmnElement="RejectionTask">
+        <dc:Bounds x="490" y="10" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_RejectionHandled_di" bpmnElement="Flow_RejectionHandled">
+        <di:waypoint x="590" y="50" />
+        <di:waypoint x="645" y="50" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNShape id="Gateway_RejectionDecision_di" bpmnElement="Gateway_RejectionDecision" isMarkerVisible="true">
+        <dc:Bounds x="645" y="25" width="50" height="50" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="643" y="1" width="54" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_Resubmit_di" bpmnElement="Flow_Resubmit">
+        <di:waypoint x="670" y="75" />
+        <di:waypoint x="670" y="340" />
+        <di:waypoint x="290" y="340" />
+        <di:waypoint x="290" y="160" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="680" y="200" width="48" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_CancelRequest_di" bpmnElement="Flow_CancelRequest">
+        <di:waypoint x="695" y="50" />
+        <di:waypoint x="782" y="50" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="715" y="33" width="35" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Approve_di" bpmnElement="Flow_Approve">
+        <di:waypoint x="445" y="120" />
+        <di:waypoint x="505" y="120" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="455" y="102" width="48" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNShape id="QueryTask_di" bpmnElement="QueryTask">
+        <dc:Bounds x="240" y="190" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_QueryResolved_di" bpmnElement="Flow_QueryResolved">
+        <di:waypoint x="240" y="230" />
+        <di:waypoint x="210" y="230" />
+        <di:waypoint x="210" y="120" />
+        <di:waypoint x="240" y="120" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNShape id="Gateway_NextLevel_di" bpmnElement="Gateway_NextLevel" isMarkerVisible="true">
+        <dc:Bounds x="505" y="95" width="50" height="50" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="495" y="71" width="70" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_HasNextLevel_di" bpmnElement="Flow_HasNextLevel">
+        <di:waypoint x="530" y="145" />
+        <di:waypoint x="530" y="290" />
+        <di:waypoint x="290" y="290" />
+        <di:waypoint x="290" y="160" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="540" y="200" width="20" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_FinalApproval_di" bpmnElement="Flow_FinalApproval">
+        <di:waypoint x="555" y="120" />
+        <di:waypoint x="620" y="120" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="570" y="102" width="15" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNShape id="CallActivity_GenerateMaterialId_di" bpmnElement="CallActivity_GenerateMaterialId">
+        <dc:Bounds x="620" y="80" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_ToApproved_di" bpmnElement="Flow_ToApproved">
+        <di:waypoint x="720" y="120" />
+        <di:waypoint x="782" y="120" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNShape id="EndEvent_Approved_di" bpmnElement="EndEvent_Approved">
+        <dc:Bounds x="782" y="102" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="777" y="145" width="47" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="EndEvent_Rejected_di" bpmnElement="EndEvent_Rejected">
+        <dc:Bounds x="782" y="32" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="777" y="75" width="46" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+  
+</bpmn:definitions>

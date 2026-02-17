@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>Level 4 Verification</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .success { color: green; font-weight: bold; }
+        .error { color: red; font-weight: bold; }
+        .info { color: blue; }
+        button { padding: 10px 20px; margin: 10px 0; cursor: pointer; }
+        pre { background: #f4f4f4; padding: 10px; border-radius: 5px; }
+    </style>
+</head>
+<body>
+    <h1>Level 4 Verification Tool</h1>
+    
+    <div>
+        <h2>1. Check Workflow Levels</h2>
+        <button onclick="checkLevels()">Check Levels in Database</button>
+        <div id="levelsResult"></div>
+    </div>
+
+    <div>
+        <h2>2. Check Dropdown Options</h2>
+        <select id="testDropdown">
+            <option value="ROLE_LEVEL1">Level 1 Approver</option>
+            <option value="ROLE_LEVEL2">Level 2 Approver</option>
+            <option value="ROLE_LEVEL3">Level 3 Approver</option>
+            <option value="ROLE_LEVEL4">Level 4 Approver</option>
+            <option value="ROLE_LEVEL5">Level 5 Approver</option>
+        </select>
+        <p id="dropdownCheck"></p>
+    </div>
+
+    <div>
+        <h2>3. Browser Cache Info</h2>
+        <p>Page loaded at: <span id="loadTime"></span></p>
+        <p>Cache status: <span id="cacheStatus"></span></p>
+    </div>
+
+    <script>
+        // Check dropdown on load
+        window.onload = function() {
+            document.getElementById('loadTime').textContent = new Date().toLocaleString();
+            
+            const dropdown = document.getElementById('testDropdown');
+            const options = Array.from(dropdown.options).map(opt => opt.text);
+            
+            if (options.includes('Level 4 Approver')) {
+                document.getElementById('dropdownCheck').innerHTML = 
+                    '<span class="success">✓ Level 4 Approver is present in dropdown!</span>';
+            } else {
+                document.getElementById('dropdownCheck').innerHTML = 
+                    '<span class="error">✗ Level 4 Approver is NOT in dropdown</span>';
+            }
+
+            // Check if page was loaded from cache
+            if (performance.navigation.type === 1) {
+                document.getElementById('cacheStatus').innerHTML = 
+                    '<span class="info">Page was reloaded</span>';
+            } else if (performance.navigation.type === 2) {
+                document.getElementById('cacheStatus').innerHTML = 
+                    '<span class="info">Page loaded from cache</span>';
+            } else {
+                document.getElementById('cacheStatus').innerHTML = 
+                    '<span class="success">Page loaded fresh from server</span>';
+            }
+        };
+
+        async function checkLevels() {
+            try {
+                const response = await fetch('/api/admin/levels');
+                const levels = await response.json();
+                
+                let html = '<pre>' + JSON.stringify(levels, null, 2) + '</pre>';
+                
+                const hasLevel4 = levels.some(level => level.levelOrder === 4);
+                if (hasLevel4) {
+                    html += '<p class="success">✓ Level 4 exists in database!</p>';
+                } else {
+                    html += '<p class="error">✗ Level 4 NOT found in database</p>';
+                }
+                
+                document.getElementById('levelsResult').innerHTML = html;
+            } catch (error) {
+                document.getElementById('levelsResult').innerHTML = 
+                    '<p class="error">Error: ' + error.message + '</p>';
+            }
+        }
+    </script>
+</body>
+</html>

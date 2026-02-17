@@ -1,0 +1,57 @@
+package com.workflow.delegate;
+
+import com.workflow.entity.MaterialMaster;
+import com.workflow.entity.WorkflowRequest;
+import com.workflow.repository.MaterialMasterRepository;
+import com.workflow.repository.WorkflowRequestRepository;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.camunda.bpm.engine.delegate.DelegateExecution;
+import org.camunda.bpm.engine.delegate.JavaDelegate;
+import org.springframework.stereotype.Component;
+
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+
+@Component("materialIdGenerator")
+@RequiredArgsConstructor
+@Slf4j
+public class MaterialIdGeneratorDelegate implements JavaDelegate {
+    
+    private final MaterialMasterRepository materialMasterRepository;
+    private final WorkflowRequestRepository requestRepository;
+    
+    @Override
+    public void execute(DelegateExecution execution) throws Exception {
+        Long requestId = (Long) execution.getVariable("requestId");
+        
+        WorkflowRequest request = requestRepository.findById(requestId)
+            .orElseThrow(() -> new RuntimeException("Request not found"));
+        
+        String materialId = generateMaterialId(request);
+        
+        MaterialMaster material = new MaterialMaster();
+        material.setMaterialId(materialId);
+        material.setRequestId(requestId);
+        material.setProductName(request.getProductName());
+        material.setCreatedDate(LocalDateTime.now());
+        
+        materialMasterRepository.save(material);
+        
+        request.setStatus("COMPLETED");
+        requestRepository.save(request);
+        
+        execution.setVariable("materialId", materialId);
+        
+        log.info("Generated Material ID: {} for Request ID: {}", materialId, requestId);
+    }
+    
+    private String generateMaterialId(WorkflowRequest request) {
+        String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"));
+        String productCode = request.getProductName().replaceAll("[^A-Za-z0-9]", "").toUpperCase();
+        if (productCode.length() > 5) {
+            productCode = productCode.substring(0, 5);
+        }
+        return String.format("MAT-%s-%s-%d", productCode, timestamp, request.getRequestId());
+    }
+}

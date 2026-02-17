@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" 
+                  xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" 
+                  xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" 
+                  xmlns:camunda="http://camunda.org/schema/1.0/bpmn" 
+                  xmlns:di="http://www.omg.org/spec/DD/20100524/DI" 
+                  id="Definitions_MaterialId" 
+                  targetNamespace="http://bpmn.io/schema/bpmn">
+  
+  <bpmn:process id="materialIdGenerationProcess" name="Material ID Generation Process" isExecutable="true" camunda:historyTimeToLive="180">
+    
+    <bpmn:startEvent id="StartEvent_MaterialId" name="Start">
+      <bpmn:outgoing>Flow_ToGenerate</bpmn:outgoing>
+    </bpmn:startEvent>
+    
+    <bpmn:sequenceFlow id="Flow_ToGenerate" sourceRef="StartEvent_MaterialId" targetRef="ServiceTask_GenerateMaterialId" />
+    
+    <bpmn:serviceTask id="ServiceTask_GenerateMaterialId" name="Generate Material ID" camunda:delegateExpression="${materialIdGenerator}">
+      <bpmn:incoming>Flow_ToGenerate</bpmn:incoming>
+      <bpmn:outgoing>Flow_ToEnd</bpmn:outgoing>
+    </bpmn:serviceTask>
+    
+    <bpmn:sequenceFlow id="Flow_ToEnd" sourceRef="ServiceTask_GenerateMaterialId" targetRef="EndEvent_MaterialId" />
+    
+    <bpmn:endEvent id="EndEvent_MaterialId" name="End">
+      <bpmn:incoming>Flow_ToEnd</bpmn:incoming>
+    </bpmn:endEvent>
+    
+  </bpmn:process>
+  
+  <bpmndi:BPMNDiagram id="BPMNDiagram_MaterialId">
+    <bpmndi:BPMNPlane id="BPMNPlane_MaterialId" bpmnElement="materialIdGenerationProcess">
+      <bpmndi:BPMNShape id="StartEvent_MaterialId_di" bpmnElement="StartEvent_MaterialId">
+        <dc:Bounds x="152" y="102" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="158" y="145" width="25" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_ToGenerate_di" bpmnElement="Flow_ToGenerate">
+        <di:waypoint x="188" y="120" />
+        <di:waypoint x="240" y="120" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNShape id="ServiceTask_GenerateMaterialId_di" bpmnElement="ServiceTask_GenerateMaterialId">
+        <dc:Bounds x="240" y="80" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_ToEnd_di" bpmnElement="Flow_ToEnd">
+        <di:waypoint x="340" y="120" />
+        <di:waypoint x="402" y="120" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNShape id="EndEvent_MaterialId_di" bpmnElement="EndEvent_MaterialId">
+        <dc:Bounds x="402" y="102" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="410" y="145" width="20" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+  
+</bpmn:definitions>

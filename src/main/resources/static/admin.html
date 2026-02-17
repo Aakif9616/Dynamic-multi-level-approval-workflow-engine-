@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel - Workflow Configuration</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <nav class="navbar navbar-dark bg-danger">
+        <div class="container-fluid">
+            <span class="navbar-brand mb-0 h1">Admin Panel - Workflow Configuration</span>
+            <div>
+                <a href="index.html" class="btn btn-light btn-sm">Back to Workflow</a>
+                <a href="/camunda" target="_blank" class="btn btn-light btn-sm">Camunda Cockpit</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <div class="alert alert-warning">
+            <strong>Important:</strong> Changes to workflow levels will affect NEW requests only. Existing running processes will continue with their original configuration.
+        </div>
+
+        <div class="row">
+            <!-- Add/Edit Level Form -->
+            <div class="col-md-5">
+                <div class="card">
+                    <div class="card-header bg-primary text-white">
+                        <h5 id="formTitle">Add New Level</h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="levelForm">
+                            <input type="hidden" id="levelId">
+                            <div class="mb-3">
+                                <label class="form-label">Level Order</label>
+                                <input type="number" class="form-control" id="levelOrder" required>
+                                <small class="text-muted">Numeric order (1, 2, 3, ...)</small>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Level Name</label>
+                                <input type="text" class="form-control" id="levelName" required>
+                                <small class="text-muted">e.g., "Level 1 - Initial Review"</small>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Role</label>
+                                <input type="text" class="form-control" id="role" required>
+                                <small class="text-muted">e.g., "ROLE_LEVEL1"</small>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Next Level</label>
+                                <input type="number" class="form-control" id="nextLevel">
+                                <small class="text-muted">Leave empty for final level</small>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Query Return Level</label>
+                                <input type="number" class="form-control" id="queryReturnLevel">
+                                <small class="text-muted">Default level for query responses</small>
+                            </div>
+                            <div class="mb-3 form-check">
+                                <input type="checkbox" class="form-check-input" id="enabled" checked>
+                                <label class="form-check-label" for="enabled">Enabled</label>
+                            </div>
+                            <button type="submit" class="btn btn-primary" id="submitBtn">Add Level</button>
+                            <button type="button" class="btn btn-secondary" onclick="resetForm()">Reset</button>
+                        </form>
+                        <div id="formResult" class="mt-3"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Levels List -->
+            <div class="col-md-7">
+                <div class="card">
+                    <div class="card-header bg-success text-white">
+                        <h5>Current Workflow Levels</h5>
+                    </div>
+                    <div class="card-body">
+                        <button class="btn btn-success btn-sm mb-3" onclick="loadLevels()">Refresh</button>
+                        <div id="levelsList"></div>
+                    </div>
+                </div>
+
+                <!-- Workflow Visualization -->
+                <div class="card mt-3">
+                    <div class="card-header bg-info text-white">
+                        <h5>Workflow Flow Diagram</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="workflowDiagram" class="workflow-diagram"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Help Section -->
+        <div class="row mt-4">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header bg-dark text-white">
+                        <h5>Configuration Guide</h5>
+                    </div>
+                    <div class="card-body">
+                        <h6>How to Configure Workflow Levels:</h6>
+                        <ol>
+                            <li><strong>Level Order:</strong> Sequential number (1, 2, 3, ...). Determines the approval sequence.</li>
+                            <li><strong>Level Name:</strong> Descriptive name shown to users.</li>
+                            <li><strong>Role:</strong> User group that can approve at this level (e.g., ROLE_LEVEL1, ROLE_MANAGER).</li>
+                            <li><strong>Next Level:</strong> The level order to route to after approval. Leave empty for the final level.</li>
+                            <li><strong>Query Return Level:</strong> Default level to send queries to (usually Level 1).</li>
+                            <li><strong>Enabled:</strong> Uncheck to temporarily disable a level without deleting it.</li>
+                        </ol>
+                        
+                        <h6 class="mt-3">Example Configurations:</h6>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <strong>Simple 2-Level Workflow:</strong>
+                                <pre class="bg-light p-2">
+Level 1 → Level 2 → End
+next_level: 2    null</pre>
+                            </div>
+                            <div class="col-md-6">
+                                <strong>Complex 4-Level Workflow:</strong>
+                                <pre class="bg-light p-2">
+Level 1 → Level 2 → Level 3 → Level 4 → End
+next_level: 2    3         4         null</pre>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="admin.js?v=2"></script>
+</body>
+</html>

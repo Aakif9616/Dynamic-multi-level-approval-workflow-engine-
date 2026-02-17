@@ -1,0 +1,134 @@
+body {
+    background-color: #f8f9fa;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.card {
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+}
+
+.stat-box {
+    padding: 20px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 10px;
+    margin: 10px;
+}
+
+.stat-box h3 {
+    font-size: 2.5rem;
+    margin: 0;
+}
+
+.stat-box p {
+    margin: 5px 0 0 0;
+    font-size: 0.9rem;
+}
+
+.task-item {
+    border: 1px solid #dee2e6;
+    border-radius: 5px;
+    padding: 15px;
+    margin-bottom: 10px;
+    background: white;
+    transition: all 0.3s;
+}
+
+.task-item:hover {
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    transform: translateY(-2px);
+}
+
+.level-item {
+    border-left: 4px solid #007bff;
+    padding: 15px;
+    margin-bottom: 10px;
+    background: white;
+    border-radius: 5px;
+}
+
+.level-item.disabled {
+    border-left-color: #dc3545;
+    opacity: 0.6;
+}
+
+.level-badge {
+    display: inline-block;
+    padding: 5px 10px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    margin-right: 5px;
+}
+
+.workflow-diagram {
+    padding: 20px;
+    background: white;
+    border-radius: 5px;
+    min-height: 200px;
+}
+
+.flow-node {
+    display: inline-block;
+    padding: 15px 25px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 10px;
+    margin: 10px;
+    font-weight: bold;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.flow-arrow {
+    display: inline-block;
+    margin: 0 10px;
+    font-size: 1.5rem;
+    color: #667eea;
+}
+
+.alert-success-custom {
+    background-color: #d4edda;
+    border-color: #c3e6cb;
+    color: #155724;
+    padding: 10px;
+    border-radius: 5px;
+    margin-top: 10px;
+}
+
+.alert-danger-custom {
+    background-color: #f8d7da;
+    border-color: #f5c6cb;
+    color: #721c24;
+    padding: 10px;
+    border-radius: 5px;
+    margin-top: 10px;
+}
+
+.btn-action {
+    margin: 2px;
+}
+
+pre {
+    font-size: 0.85rem;
+}
+
+.navbar-brand {
+    font-size: 1.5rem;
+    font-weight: bold;
+}
+
+@media (max-width: 768px) {
+    .stat-box {
+        margin: 5px 0;
+    }
+    
+    .flow-node {
+        display: block;
+        margin: 10px 0;
+    }
+    
+    .flow-arrow {
+        display: block;
+        transform: rotate(90deg);
+    }
+}
