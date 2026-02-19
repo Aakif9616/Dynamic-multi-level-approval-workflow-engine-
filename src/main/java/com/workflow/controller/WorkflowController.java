@@ -18,8 +18,13 @@ public class WorkflowController {
     private final WorkflowService workflowService;
     
     @PostMapping("/requests")
-    public ResponseEntity<WorkflowRequest> createRequest(@RequestBody WorkflowRequestDTO dto) {
-        return ResponseEntity.ok(workflowService.createRequest(dto));
+    public ResponseEntity<?> createRequest(@RequestBody WorkflowRequestDTO dto) {
+        try {
+            return ResponseEntity.ok(workflowService.createRequest(dto));
+        } catch (Exception e) {
+            return ResponseEntity.status(500)
+                    .body(Map.of("error", e.getMessage(), "timestamp", System.currentTimeMillis()));
+        }
     }
     
     @GetMapping("/tasks")
@@ -52,5 +57,26 @@ public class WorkflowController {
     @GetMapping("/process/{processInstanceId}/variables")
     public ResponseEntity<Map<String, Object>> getProcessVariables(@PathVariable String processInstanceId) {
         return ResponseEntity.ok(workflowService.getProcessVariables(processInstanceId));
+    }
+    
+    @PutMapping("/requests/edit")
+    public ResponseEntity<WorkflowRequest> editRequest(@RequestBody EditRequestDTO dto) {
+        return ResponseEntity.ok(workflowService.editRequest(dto));
+    }
+    
+    @GetMapping("/requests/{requestId}")
+    public ResponseEntity<WorkflowRequest> getRequest(@PathVariable Long requestId) {
+        return ResponseEntity.ok(workflowService.getRequest(requestId));
+    }
+    
+    @DeleteMapping("/requests/{requestId}")
+    public ResponseEntity<Void> deleteRequest(@PathVariable Long requestId, @RequestParam String role) {
+        workflowService.deleteRequest(requestId, role);
+        return ResponseEntity.ok().build();
+    }
+    
+    @GetMapping("/requests/all")
+    public ResponseEntity<List<WorkflowRequest>> getAllRequests(@RequestParam String role) {
+        return ResponseEntity.ok(workflowService.getAllRequests(role));
     }
 }

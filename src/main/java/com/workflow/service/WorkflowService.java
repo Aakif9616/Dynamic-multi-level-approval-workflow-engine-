@@ -24,9 +24,17 @@ public class WorkflowService {
     private final MaterialMasterRepository materialMasterRepository;
     private final RuntimeService runtimeService;
     private final TaskService taskService;
+    private final RBACService rbacService;
+    private final DynamicFormService dynamicFormService; // NEW: Form service
     
     @Transactional
     public WorkflowRequest createRequest(WorkflowRequestDTO dto) {
+        // RBAC: All levels can create requests
+        if (dto.getRole() != null) {
+            rbacService.validatePermission(dto.getRole(), Permission.CREATE_REQUEST);
+            log.info("Request creation authorized for role: {}", dto.getRole());
+        }
+        
         WorkflowRequest request = new WorkflowRequest();
         request.setRequester(dto.getRequester());
         request.setProductName(dto.getProductName());
@@ -44,12 +52,41 @@ public class WorkflowService {
         variables.put("totalLevels", levels.size());
         variables.put("workflowLevels", buildLevelMap(levels));
         
+        // NEW: Store form ID if provided
+        if (dto.getFormId() != null) {
+            variables.put("formId", dto.getFormId());
+        }
+        
         String processInstanceId = runtimeService
             .startProcessInstanceByKey("dynamicApprovalProcess", variables)
             .getId();
         
         request.setProcessInstanceId(processInstanceId);
-        return requestRepository.save(request);
+        request = requestRepository.save(request);
+        
+        // NEW: Save form data if provided
+        if (dto.getFormId() != null && dto.getFormData() != null && !dto.getFormData().isEmpty()) {
+            try {
+                FormSubmissionDTO formSubmission = new FormSubmissionDTO();
+                formSubmission.setProcessInstanceId(processInstanceId);
+                formSubmission.setFormId(dto.getFormId());
+                formSubmission.setCurrentLevel(1);
+                formSubmission.setUserRole(dto.getRole());
+                formSubmission.setFieldValues(dto.getFormData());
+                
+                dynamicFormService.submitFormData(formSubmission);
+                log.info("Form data saved for process: {}", processInstanceId);
+            } catch (Exception e) {
+                log.error("Error saving form data: {}", e.getMessage(), e);
+                // Delete the created request and process since form data failed
+                requestRepository.delete(request);
+                runtimeService.deleteProcessInstance(processInstanceId, "Form data validation failed: " + e.getMessage());
+                throw new RuntimeException("Form data validation failed: " + e.getMessage(), e);
+            }
+        }
+        
+        log.info("Request created by role: {} with ID: {}", dto.getRole(), request.getRequestId());
+        return request;
     }
     
     private Map<Integer, Map<String, Object>> buildLevelMap(List<WorkflowLevel> levels) {
@@ -256,5 +293,61 @@ public class WorkflowService {
     
     public Map<String, Object> getProcessVariables(String processInstanceId) {
         return runtimeService.getVariables(processInstanceId);
+    }
+    
+    @Transactional
+    public WorkflowRequest editRequest(EditRequestDTO dto) {
+        // RBAC: All levels can edit requests
+        rbacService.validatePermission(dto.getRole(), Permission.EDIT_REQUEST);
+        
+        WorkflowRequest request = requestRepository.findById(dto.getRequestId())
+                .orElseThrow(() -> new RuntimeException("Request not found: " + dto.getRequestId()));
+        
+        // Update request details
+        if (dto.getRequester() != null) {
+            request.setRequester(dto.getRequester());
+        }
+        if (dto.getProductName() != null) {
+            request.setProductName(dto.getProductName());
+        }
+        if (dto.getDescription() != null) {
+            request.setDescription(dto.getDescription());
+        }
+        
+        log.info("Request {} edited by role: {}", dto.getRequestId(), dto.getRole());
+        return requestRepository.save(request);
+    }
+    
+    public WorkflowRequest getRequest(Long requestId) {
+        return requestRepository.findById(requestId)
+                .orElseThrow(() -> new RuntimeException("Request not found: " + requestId));
+    }
+    
+    @Transactional
+    public void deleteRequest(Long requestId, String role) {
+        // RBAC: Only Final Level can delete requests
+        rbacService.validatePermission(role, Permission.DELETE_REQUEST);
+        
+        WorkflowRequest request = requestRepository.findById(requestId)
+                .orElseThrow(() -> new RuntimeException("Request not found: " + requestId));
+        
+        // Delete associated process instance if exists
+        if (request.getProcessInstanceId() != null) {
+            try {
+                runtimeService.deleteProcessInstance(request.getProcessInstanceId(), "Deleted by " + role);
+            } catch (Exception e) {
+                log.warn("Could not delete process instance: {}", e.getMessage());
+            }
+        }
+        
+        requestRepository.delete(request);
+        log.info("Request {} deleted by role: {}", requestId, role);
+    }
+    
+    public List<WorkflowRequest> getAllRequests(String role) {
+        // RBAC: Only Final Level can view all requests
+        rbacService.validatePermission(role, Permission.VIEW_ALL_REQUESTS);
+        
+        return requestRepository.findAll();
     }
 }

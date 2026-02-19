@@ -6,125 +6,265 @@
     <title>Admin Panel - Workflow Configuration</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
+    <style>
+        .level-card {
+            border-left: 4px solid #0d6efd;
+            margin-bottom: 20px;
+            transition: all 0.3s;
+        }
+        .level-card:hover {
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .level-card.final-level {
+            border-left-color: #dc3545;
+        }
+        .permission-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            margin: 2px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 500;
+        }
+        .perm-has {
+            background: #198754;
+            color: white;
+        }
+        .perm-none {
+            background: #6c757d;
+            color: white;
+            opacity: 0.5;
+        }
+        .perm-admin {
+            background: #dc3545;
+            color: white;
+        }
+        .level-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px;
+            border-radius: 8px 8px 0 0;
+        }
+        .add-level-section {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+        }
+        .nav-tabs .nav-link.active {
+            background-color: #0d6efd;
+            color: white;
+        }
+    </style>
 </head>
 <body>
     <nav class="navbar navbar-dark bg-danger">
         <div class="container-fluid">
-            <span class="navbar-brand mb-0 h1">Admin Panel - Workflow Configuration</span>
+            <span class="navbar-brand mb-0 h1">Admin Panel - Workflow & RBAC Management</span>
             <div>
-                <a href="index.html" class="btn btn-light btn-sm">Back to Workflow</a>
+                <a href="index.html" class="btn btn-light btn-sm me-2">Back to Workflow</a>
                 <a href="/camunda" target="_blank" class="btn btn-light btn-sm">Camunda Cockpit</a>
             </div>
         </div>
     </nav>
 
     <div class="container mt-4">
-        <div class="alert alert-warning">
-            <strong>Important:</strong> Changes to workflow levels will affect NEW requests only. Existing running processes will continue with their original configuration.
-        </div>
+        <!-- Tabs -->
+        <ul class="nav nav-tabs mb-4" id="adminTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="workflow-tab" data-bs-toggle="tab" data-bs-target="#workflow" type="button">
+                    📋 Workflow Levels
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="rbac-tab" data-bs-toggle="tab" data-bs-target="#rbac" type="button">
+                    🔐 RBAC Permissions
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="forms-tab" data-bs-toggle="tab" data-bs-target="#forms" type="button">
+                    📝 Form Builder
+                </button>
+            </li>
+        </ul>
 
-        <div class="row">
-            <!-- Add/Edit Level Form -->
-            <div class="col-md-5">
+        <!-- Tab Content -->
+        <div class="tab-content" id="adminTabContent">
+            <!-- Workflow Levels Tab -->
+            <div class="tab-pane fade show active" id="workflow" role="tabpanel">
+                <div class="alert alert-info">
+                    <strong>ℹ️ Workflow Management</strong><br>
+                    Add/edit/delete workflow levels. RBAC roles are automatically created/updated/deleted with default permissions.
+                    Customize permissions in the RBAC Permissions tab.
+                </div>
+
+                <!-- Add New Level Section -->
+                <div class="add-level-section">
+                    <h4 class="mb-3">➕ Add New Workflow Level</h4>
+                    <form id="levelForm" class="row g-3">
+                        <input type="hidden" id="levelId">
+                        
+                        <div class="col-md-2">
+                            <label class="form-label">Level Order *</label>
+                            <input type="number" class="form-control" id="levelOrder" required>
+                        </div>
+                        
+                        <div class="col-md-3">
+                            <label class="form-label">Level Name *</label>
+                            <input type="text" class="form-control" id="levelName" placeholder="e.g., Level 4 - Review" required>
+                        </div>
+                        
+                        <div class="col-md-2">
+                            <label class="form-label">Role *</label>
+                            <input type="text" class="form-control" id="role" placeholder="ROLE_LEVEL4" required>
+                        </div>
+                        
+                        <div class="col-md-2">
+                            <label class="form-label">Next Level</label>
+                            <input type="number" class="form-control" id="nextLevel" placeholder="Empty = Final">
+                        </div>
+                        
+                        <div class="col-md-2">
+                            <label class="form-label">Query Return</label>
+                            <input type="number" class="form-control" id="queryReturnLevel" value="1">
+                        </div>
+                        
+                        <div class="col-md-1">
+                            <label class="form-label">Enabled</label>
+                            <div class="form-check mt-2">
+                                <input type="checkbox" class="form-check-input" id="enabled" checked>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-12">
+                            <button type="submit" class="btn btn-primary" id="submitBtn">
+                                <span id="btnIcon">➕</span> <span id="btnText">Add Level</span>
+                            </button>
+                            <button type="button" class="btn btn-secondary" onclick="resetForm()">Reset</button>
+                            <button type="button" class="btn btn-success" onclick="loadLevels()">🔄 Refresh</button>
+                        </div>
+                        
+                        <div class="col-md-12">
+                            <div id="formResult"></div>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Current Workflow Levels -->
+                <h4 class="mb-3">📋 Current Workflow Levels</h4>
+                <div id="levelsList">
+                    <div class="text-center">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Workflow Diagram -->
+                <div class="card mt-4">
+                    <div class="card-header bg-info text-white">
+                        <h5 class="mb-0">🔄 Workflow Flow Diagram</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="workflowDiagram" class="text-center"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- RBAC Permissions Tab -->
+            <div class="tab-pane fade" id="rbac" role="tabpanel">
+                <div class="alert alert-warning">
+                    <strong>🔐 RBAC Permissions Management</strong><br>
+                    Customize permissions for each role. Roles are automatically created when you add workflow levels.
+                    Only edit permissions here - do NOT add/delete roles manually.
+                </div>
+
+                <!-- Roles Table -->
                 <div class="card">
                     <div class="card-header bg-primary text-white">
-                        <h5 id="formTitle">Add New Level</h5>
+                        <h5 class="mb-0">Roles & Permissions</h5>
                     </div>
                     <div class="card-body">
-                        <form id="levelForm">
-                            <input type="hidden" id="levelId">
-                            <div class="mb-3">
-                                <label class="form-label">Level Order</label>
-                                <input type="number" class="form-control" id="levelOrder" required>
-                                <small class="text-muted">Numeric order (1, 2, 3, ...)</small>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">Level Name</label>
-                                <input type="text" class="form-control" id="levelName" required>
-                                <small class="text-muted">e.g., "Level 1 - Initial Review"</small>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">Role</label>
-                                <input type="text" class="form-control" id="role" required>
-                                <small class="text-muted">e.g., "ROLE_LEVEL1"</small>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">Next Level</label>
-                                <input type="number" class="form-control" id="nextLevel">
-                                <small class="text-muted">Leave empty for final level</small>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">Query Return Level</label>
-                                <input type="number" class="form-control" id="queryReturnLevel">
-                                <small class="text-muted">Default level for query responses</small>
-                            </div>
-                            <div class="mb-3 form-check">
-                                <input type="checkbox" class="form-check-input" id="enabled" checked>
-                                <label class="form-check-label" for="enabled">Enabled</label>
-                            </div>
-                            <button type="submit" class="btn btn-primary" id="submitBtn">Add Level</button>
-                            <button type="button" class="btn btn-secondary" onclick="resetForm()">Reset</button>
-                        </form>
-                        <div id="formResult" class="mt-3"></div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Levels List -->
-            <div class="col-md-7">
-                <div class="card">
-                    <div class="card-header bg-success text-white">
-                        <h5>Current Workflow Levels</h5>
-                    </div>
-                    <div class="card-body">
-                        <button class="btn btn-success btn-sm mb-3" onclick="loadLevels()">Refresh</button>
-                        <div id="levelsList"></div>
+                        <button class="btn btn-success btn-sm mb-3" onclick="loadRoles()">🔄 Refresh</button>
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Level</th>
+                                        <th>Role Name</th>
+                                        <th>Description</th>
+                                        <th>Permissions</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="rolesTableBody">
+                                    <tr>
+                                        <td colspan="5" class="text-center">Loading roles...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Workflow Visualization -->
-                <div class="card mt-3">
-                    <div class="card-header bg-info text-white">
-                        <h5>Workflow Flow Diagram</h5>
+                <!-- Permission Legend -->
+                <div class="card mt-4">
+                    <div class="card-header bg-secondary text-white">
+                        <h5 class="mb-0">📖 Permission Guide</h5>
                     </div>
                     <div class="card-body">
-                        <div id="workflowDiagram" class="workflow-diagram"></div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Help Section -->
-        <div class="row mt-4">
-            <div class="col-md-12">
-                <div class="card">
-                    <div class="card-header bg-dark text-white">
-                        <h5>Configuration Guide</h5>
-                    </div>
-                    <div class="card-body">
-                        <h6>How to Configure Workflow Levels:</h6>
-                        <ol>
-                            <li><strong>Level Order:</strong> Sequential number (1, 2, 3, ...). Determines the approval sequence.</li>
-                            <li><strong>Level Name:</strong> Descriptive name shown to users.</li>
-                            <li><strong>Role:</strong> User group that can approve at this level (e.g., ROLE_LEVEL1, ROLE_MANAGER).</li>
-                            <li><strong>Next Level:</strong> The level order to route to after approval. Leave empty for the final level.</li>
-                            <li><strong>Query Return Level:</strong> Default level to send queries to (usually Level 1).</li>
-                            <li><strong>Enabled:</strong> Uncheck to temporarily disable a level without deleting it.</li>
-                        </ol>
-                        
-                        <h6 class="mt-3">Example Configurations:</h6>
                         <div class="row">
-                            <div class="col-md-6">
-                                <strong>Simple 2-Level Workflow:</strong>
-                                <pre class="bg-light p-2">
-Level 1 → Level 2 → End
-next_level: 2    null</pre>
+                            <div class="col-md-4">
+                                <h6>Level 1 (Creator):</h6>
+                                <ul>
+                                    <li><strong>CREATE_REQUEST</strong>: Create new requests</li>
+                                    <li><strong>VIEW_REQUEST</strong>: View request details</li>
+                                </ul>
                             </div>
-                            <div class="col-md-6">
-                                <strong>Complex 4-Level Workflow:</strong>
-                                <pre class="bg-light p-2">
-Level 1 → Level 2 → Level 3 → Level 4 → End
-next_level: 2    3         4         null</pre>
+                            <div class="col-md-4">
+                                <h6>Levels 2+ (Approvers):</h6>
+                                <ul>
+                                    <li><strong>APPROVE_TASK</strong>: Approve or reject tasks</li>
+                                    <li><strong>QUERY_TASK</strong>: Raise queries</li>
+                                    <li><strong>EDIT_REQUEST</strong>: Edit requests</li>
+                                    <li><strong>VIEW_REQUEST</strong>: View requests</li>
+                                </ul>
+                            </div>
+                            <div class="col-md-4">
+                                <h6>Final Level (Admin):</h6>
+                                <ul>
+                                    <li>All approver permissions PLUS:</li>
+                                    <li><strong>DELETE_REQUEST</strong> 🔑: Delete requests</li>
+                                    <li><strong>VIEW_ALL_REQUESTS</strong> 🔑: View all requests</li>
+                                    <li><strong>MANAGE_LEVELS</strong> 🔑: Admin functions</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Form Builder Tab -->
+            <div class="tab-pane fade" id="forms" role="tabpanel">
+                <div class="alert alert-info">
+                    <strong>📝 Form Builder</strong><br>
+                    Create dynamic forms with customizable fields. Configure which levels can see and edit each field.
+                </div>
+
+                <!-- Forms List -->
+                <div class="card mb-4">
+                    <div class="card-header d-flex justify-content-between align-items-center bg-success text-white">
+                        <h5 class="mb-0">Forms</h5>
+                        <button class="btn btn-light btn-sm" onclick="showCreateFormModal()">
+                            ➕ Create New Form
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div id="formsList">
+                            <div class="text-center">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -133,7 +273,150 @@ next_level: 2    3         4         null</pre>
         </div>
     </div>
 
+    <!-- Edit Permissions Modal -->
+    <div class="modal fade" id="permissionsModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Edit Permissions</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="editRoleId">
+                    <h6 id="editRoleName"></h6>
+                    <p class="text-muted" id="editRoleDescription"></p>
+                    
+                    <div class="mb-3">
+                        <label class="form-label"><strong>Select Permissions:</strong></label>
+                        <div id="permissionsCheckboxes">
+                            <!-- Will be populated dynamically -->
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" onclick="savePermissions()">Save Permissions</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create/Edit Form Modal -->
+    <div class="modal fade" id="formModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="formModalTitle">Create New Form</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="formId">
+                    <div class="mb-3">
+                        <label for="formName" class="form-label">Form Name *</label>
+                        <input type="text" class="form-control" id="formName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="formDescription" class="form-label">Description</label>
+                        <textarea class="form-control" id="formDescription" rows="3"></textarea>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="formActive" checked>
+                        <label class="form-check-label" for="formActive">Active</label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" onclick="saveForm()">Save Form</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add/Edit Field Modal -->
+    <div class="modal fade" id="fieldModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="fieldModalTitle">Add Field</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="fieldId">
+                    <input type="hidden" id="fieldFormId">
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="fieldName" class="form-label">Field Name *</label>
+                            <input type="text" class="form-control" id="fieldName" placeholder="e.g., requesterName" required>
+                            <small class="text-muted">No spaces, camelCase</small>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="fieldLabel" class="form-label">Field Label *</label>
+                            <input type="text" class="form-control" id="fieldLabel" placeholder="e.g., Requester Name" required>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="fieldType" class="form-label">Field Type *</label>
+                            <select class="form-select" id="fieldType" required>
+                                <option value="TEXT">Text (Single Line)</option>
+                                <option value="TEXTAREA">Text Area (Multiple Lines)</option>
+                                <option value="NUMBER">Number</option>
+                                <option value="EMAIL">Email</option>
+                                <option value="DATE">Date</option>
+                                <option value="DROPDOWN">Dropdown</option>
+                                <option value="RADIO">Radio Buttons</option>
+                                <option value="CHECKBOX">Checkboxes</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="fieldPlaceholder" class="form-label">Placeholder</label>
+                            <input type="text" class="form-control" id="fieldPlaceholder" placeholder="e.g., Enter your name">
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3" id="fieldOptionsDiv" style="display:none;">
+                        <label for="fieldOptions" class="form-label">Options (one per line)</label>
+                        <textarea class="form-control" id="fieldOptions" rows="3" placeholder="Option 1&#10;Option 2&#10;Option 3"></textarea>
+                        <small class="text-muted">For dropdown, radio, or checkbox fields</small>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="fieldHelpText" class="form-label">Help Text</label>
+                        <input type="text" class="form-control" id="fieldHelpText" placeholder="Additional guidance for users">
+                    </div>
+                    
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="fieldRequired">
+                        <label class="form-check-label" for="fieldRequired">Required Field</label>
+                    </div>
+                    
+                    <hr>
+                    
+                    <div class="mb-3">
+                        <label class="form-label"><strong>Visible at Levels:</strong></label>
+                        <div id="visibleLevelsCheckboxes">
+                            <!-- Will be populated dynamically -->
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label"><strong>Editable at Levels:</strong></label>
+                        <div id="editableLevelsCheckboxes">
+                            <!-- Will be populated dynamically -->
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" onclick="saveField()">Save Field</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="admin.js?v=2"></script>
+    <script src="admin.js?v=20260217v4"></script>
 </body>
 </html>
