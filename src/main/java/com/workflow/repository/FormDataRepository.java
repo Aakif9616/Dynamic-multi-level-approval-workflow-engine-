@@ -9,6 +9,9 @@ import java.util.Optional;
 
 @Repository
 public interface FormDataRepository extends JpaRepository<FormData, Long> {
-    List<FormData> findByProcessInstanceId(String processInstanceId);
-    Optional<FormData> findByProcessInstanceIdAndFieldId(String processInstanceId, Long fieldId);
+    // Primary query method - use Form Instance ID only
+    List<FormData> findByFormInstanceId(String formInstanceId);
+    
+    // Find specific field data for a Form Instance
+    Optional<FormData> findByFormInstanceIdAndFieldId(String formInstanceId, Long fieldId);
 }

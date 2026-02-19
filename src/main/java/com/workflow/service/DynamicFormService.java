@@ -155,23 +155,28 @@ public class DynamicFormService {
     
     // ==================== FORM RENDERING ====================
     
-    public FormDTO renderForm(Long formId, Integer currentLevel, String processInstanceId) {
+    public FormDTO renderForm(Long formId, Integer currentLevel, String formInstanceId) {
         Form form = formRepository.findById(formId)
                 .orElseThrow(() -> new RuntimeException("Form not found"));
         
         // Get all active fields for this form
         List<FormField> allFields = formFieldRepository.findByFormIdAndActiveTrueOrderByDisplayOrderAsc(formId);
         
-        // Get existing data if processInstanceId provided
+        // Get existing data if formInstanceId provided
         final Map<Long, String> existingData = new HashMap<>();
-        if (processInstanceId != null && !processInstanceId.isEmpty()) {
-            List<FormData> dataList = formDataRepository.findByProcessInstanceId(processInstanceId);
-            existingData.putAll(dataList.stream()
-                    .collect(Collectors.toMap(
-                            fd -> fd.getField().getId(),
-                            FormData::getFieldValue,
-                            (v1, v2) -> v2 // Keep latest value
-                    )));
+        if (formInstanceId != null && !formInstanceId.isEmpty()) {
+            // Load data by Form Instance ID ONLY
+            List<FormData> dataList = formDataRepository.findByFormInstanceId(formInstanceId);
+            
+            if (!dataList.isEmpty()) {
+                existingData.putAll(dataList.stream()
+                        .collect(Collectors.toMap(
+                                fd -> fd.getField().getId(),
+                                FormData::getFieldValue,
+                                (v1, v2) -> v2 // Keep latest value
+                        )));
+                log.info("Loaded {} form data entries for Form Instance: {}", dataList.size(), formInstanceId);
+            }
         }
         
         // Filter fields based on level visibility
@@ -193,8 +198,8 @@ public class DynamicFormService {
         Form form = formRepository.findById(submission.getFormId())
                 .orElseThrow(() -> new RuntimeException("Form not found"));
         
-        log.info("Submitting form data for form ID: {}, level: {}, fields: {}", 
-                submission.getFormId(), submission.getCurrentLevel(), submission.getFieldValues().keySet());
+        log.info("Submitting form data for Form Instance: {}, level: {}, fields: {}", 
+                submission.getFormInstanceId(), submission.getCurrentLevel(), submission.getFieldValues().keySet());
         
         // Validate and save each field
         for (Map.Entry<Long, String> entry : submission.getFieldValues().entrySet()) {
@@ -224,9 +229,9 @@ public class DynamicFormService {
                 throw new RuntimeException(errorMsg);
             }
             
-            // Save or update form data
-            Optional<FormData> existingData = formDataRepository.findByProcessInstanceIdAndFieldId(
-                    submission.getProcessInstanceId(), fieldId);
+            // Save or update form data - USE FORM INSTANCE ID ONLY
+            Optional<FormData> existingData = formDataRepository.findByFormInstanceIdAndFieldId(
+                    submission.getFormInstanceId(), fieldId);
             
             FormData formData;
             if (existingData.isPresent()) {
@@ -236,7 +241,7 @@ public class DynamicFormService {
                 log.info("Updated existing form data for field: {}", field.getFieldLabel());
             } else {
                 formData = new FormData();
-                formData.setProcessInstanceId(submission.getProcessInstanceId());
+                formData.setFormInstanceId(submission.getFormInstanceId()); // ONLY Form Instance ID
                 formData.setForm(form);
                 formData.setField(field);
                 formData.setFieldValue(value);
@@ -249,7 +254,7 @@ public class DynamicFormService {
             formDataRepository.save(formData);
         }
         
-        log.info("Form data submission completed successfully");
+        log.info("Form data submission completed successfully for Form Instance: {}", submission.getFormInstanceId());
     }
     
     // ==================== HELPER METHODS ====================

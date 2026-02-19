@@ -96,8 +96,8 @@ public class FormController {
     public ResponseEntity<FormDTO> renderForm(
             @PathVariable Long id,
             @RequestParam Integer level,
-            @RequestParam(required = false) String processInstanceId) {
-        FormDTO form = formService.renderForm(id, level, processInstanceId);
+            @RequestParam(required = false) String formInstanceId) {
+        FormDTO form = formService.renderForm(id, level, formInstanceId);
         return ResponseEntity.ok(form);
     }
     

@@ -25,7 +25,8 @@ public class WorkflowService {
     private final RuntimeService runtimeService;
     private final TaskService taskService;
     private final RBACService rbacService;
-    private final DynamicFormService dynamicFormService; // NEW: Form service
+    private final DynamicFormService dynamicFormService;
+    private final FormInstanceService formInstanceService; // NEW
     
     @Transactional
     public WorkflowRequest createRequest(WorkflowRequestDTO dto) {
@@ -64,18 +65,35 @@ public class WorkflowService {
         request.setProcessInstanceId(processInstanceId);
         request = requestRepository.save(request);
         
+        // NEW: Create Form Instance if form is used
+        String formInstanceId = null;
+        if (dto.getFormId() != null) {
+            FormInstance formInstance = formInstanceService.createFormInstance(
+                dto.getFormId(),
+                processInstanceId,
+                request.getRequestId(),
+                dto.getRole()
+            );
+            formInstanceId = formInstance.getFormInstanceId();
+            
+            // Store Form Instance ID in process variables
+            runtimeService.setVariable(processInstanceId, "formInstanceId", formInstanceId);
+            
+            log.info("Created Form Instance: {} for Request: {}", formInstanceId, request.getRequestId());
+        }
+        
         // NEW: Save form data if provided
         if (dto.getFormId() != null && dto.getFormData() != null && !dto.getFormData().isEmpty()) {
             try {
                 FormSubmissionDTO formSubmission = new FormSubmissionDTO();
-                formSubmission.setProcessInstanceId(processInstanceId);
+                formSubmission.setFormInstanceId(formInstanceId); // ONLY Form Instance ID needed
                 formSubmission.setFormId(dto.getFormId());
                 formSubmission.setCurrentLevel(1);
                 formSubmission.setUserRole(dto.getRole());
                 formSubmission.setFieldValues(dto.getFormData());
                 
                 dynamicFormService.submitFormData(formSubmission);
-                log.info("Form data saved for process: {}", processInstanceId);
+                log.info("Form data saved for Form Instance: {}", formInstanceId);
             } catch (Exception e) {
                 log.error("Error saving form data: {}", e.getMessage(), e);
                 // Delete the created request and process since form data failed
@@ -170,11 +188,28 @@ public class WorkflowService {
             
             Integer nextLevel = (Integer) workflowLevels.get(currentLevel).get("nextLevel");
             
+            // NEW: Update Form Instance level if it exists
+            String formInstanceId = (String) runtimeService
+                .getVariable(task.getProcessInstanceId(), "formInstanceId");
+            
             if (nextLevel != null && workflowLevels.containsKey(nextLevel)) {
                 variables.put("currentLevel", nextLevel);
                 variables.put("approved", true);
+                
+                // NEW: Update Form Instance to next level
+                if (formInstanceId != null) {
+                    formInstanceService.updateLevel(formInstanceId, nextLevel);
+                    log.info("Updated Form Instance {} to level {}", formInstanceId, nextLevel);
+                }
             } else {
                 variables.put("finalApproval", true);
+                
+                // NEW: Complete Form Instance and generate Material ID
+                if (formInstanceId != null) {
+                    String materialId = formInstanceService.completeFormInstance(formInstanceId);
+                    variables.put("materialId", materialId);
+                    log.info("Completed Form Instance {} with Material ID: {}", formInstanceId, materialId);
+                }
             }
         } else if ("REJECT".equals(dto.getDecision())) {
             // Store the level where rejection occurred

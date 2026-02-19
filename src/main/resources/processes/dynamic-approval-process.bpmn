@@ -35,7 +35,7 @@
       <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${execution.hasVariable('decision') &amp;&amp; decision == 'REJECT'}</bpmn:conditionExpression>
     </bpmn:sequenceFlow>
     
-    <bpmn:userTask id="RejectionTask" name="Handle Rejection" camunda:candidateGroups="${workflowLevels[1]['role']}">
+    <bpmn:userTask id="RejectionTask" name="Handle Rejection" camunda:candidateGroups="ROLE_LEVEL1">
       <bpmn:incoming>Flow_Reject</bpmn:incoming>
       <bpmn:outgoing>Flow_RejectionHandled</bpmn:outgoing>
     </bpmn:userTask>
@@ -60,7 +60,7 @@
     
     <bpmn:sequenceFlow id="Flow_Approve" name="Approved" sourceRef="Gateway_Decision" targetRef="Gateway_NextLevel" />
     
-    <bpmn:userTask id="QueryTask" name="Handle Query" camunda:candidateGroups="${workflowLevels[queryTargetLevel]['role']}">
+    <bpmn:userTask id="QueryTask" name="Handle Query" camunda:candidateGroups="ROLE_LEVEL1">
       <bpmn:incoming>Flow_Query</bpmn:incoming>
       <bpmn:outgoing>Flow_QueryResolved</bpmn:outgoing>
     </bpmn:userTask>

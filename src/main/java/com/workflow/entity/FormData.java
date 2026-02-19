@@ -14,7 +14,7 @@ public class FormData {
     private Long id;
     
     @Column(nullable = false)
-    private String processInstanceId; // Camunda process instance ID
+    private String formInstanceId; // Links to FormInstance - THIS IS THE ONLY LINK WE NEED
     
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "form_id", nullable = false)

@@ -123,9 +123,10 @@ function openTask(taskId, processInstanceId) {
             let taskDetailsHtml = `<p><strong>Task ID:</strong> ${taskId}</p>`;
             taskDetailsHtml += `<p><strong>Task Name:</strong> ${task.name}</p>`;
             
-            // Fetch process variables to get formId and currentLevel
+            // Fetch process variables to get formId, currentLevel, and formInstanceId
             let formId = null;
             let currentLevel = null;
+            let formInstanceId = null;
             
             try {
                 const variablesResponse = await fetch(`${API_BASE}/workflow/process/${processInstanceId}/variables`);
@@ -133,6 +134,12 @@ function openTask(taskId, processInstanceId) {
                     const variables = await variablesResponse.json();
                     formId = variables.formId;
                     currentLevel = variables.currentLevel;
+                    formInstanceId = variables.formInstanceId;
+                    
+                    // NEW: Display Form Instance ID if available
+                    if (formInstanceId) {
+                        taskDetailsHtml += `<p><strong>Form Instance ID:</strong> <span class="badge bg-primary">${formInstanceId}</span></p>`;
+                    }
                     
                     // Check if there's a resolved query response to show
                     if (!isQueryTask && !isRejectionTask && variables.requestId) {
@@ -208,7 +215,7 @@ function openTask(taskId, processInstanceId) {
             
             // Load and render form if formId exists and not a query/rejection task
             if (formId && currentLevel && !isQueryTask && !isRejectionTask) {
-                await loadDynamicFormInTask(formId, currentLevel, processInstanceId);
+                await loadDynamicFormInTask(formId, currentLevel, formInstanceId);
             }
             
             // Update decision options based on task type
@@ -314,17 +321,18 @@ async function submitDecision() {
             if (taskFormFields.length > 0 && decision === 'APPROVE') {
                 const formData = collectTaskFormData();
                 
-                // Get formId and currentLevel from process variables
+                // Get formId, currentLevel, and formInstanceId from process variables
                 const variablesResponse = await fetch(`${API_BASE}/workflow/process/${currentProcessInstanceId}/variables`);
                 if (variablesResponse.ok) {
                     const variables = await variablesResponse.json();
                     const formId = variables.formId;
                     const currentLevel = variables.currentLevel;
+                    const formInstanceId = variables.formInstanceId;
                     const currentRole = document.getElementById('roleSelect').value;
                     
-                    // Submit form data
+                    // Submit form data - ONLY Form Instance ID needed
                     const formSubmission = {
-                        processInstanceId: currentProcessInstanceId,
+                        formInstanceId: formInstanceId,
                         formId: formId,
                         currentLevel: currentLevel,
                         userRole: currentRole,
@@ -517,8 +525,23 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 const result = await response.json();
                 console.log('Success result:', result);
+                
+                // NEW: Fetch Form Instance ID if form was used
+                let formInstanceIdDisplay = '';
+                if (selectedFormId && result.processInstanceId) {
+                    try {
+                        const fiResponse = await fetch(`${API_BASE}/workflow/form-instance/by-process/${result.processInstanceId}`);
+                        if (fiResponse.ok) {
+                            const formInstance = await fiResponse.json();
+                            formInstanceIdDisplay = `<br>Form Instance ID: <strong>${formInstance.formInstanceId}</strong>`;
+                        }
+                    } catch (e) {
+                        console.log('Could not fetch form instance ID:', e);
+                    }
+                }
+                
                 document.getElementById('createResult').innerHTML = 
-                    `<div class="alert alert-success">Request created! ID: ${result.requestId}, Process: ${result.processInstanceId}</div>`;
+                    `<div class="alert alert-success">Request created! ID: ${result.requestId}, Process: ${result.processInstanceId}${formInstanceIdDisplay}</div>`;
                 createForm.reset();
                 document.getElementById('dynamicFormFields').innerHTML = '';
                 document.getElementById('basicFormFields').style.display = 'block';
@@ -535,11 +558,11 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // Load and render dynamic form
-async function loadDynamicForm(formId, level, processInstanceId = null) {
+async function loadDynamicForm(formId, level, formInstanceId = null) {
     try {
         let url = `${API_BASE}/forms/${formId}/render?level=${level}`;
-        if (processInstanceId) {
-            url += `&processInstanceId=${processInstanceId}`;
+        if (formInstanceId) {
+            url += `&formInstanceId=${formInstanceId}`;
         }
         
         const response = await fetch(url);
@@ -558,11 +581,11 @@ async function loadDynamicForm(formId, level, processInstanceId = null) {
 }
 
 // Load and render dynamic form in task modal
-async function loadDynamicFormInTask(formId, level, processInstanceId) {
+async function loadDynamicFormInTask(formId, level, formInstanceId) {
     try {
         let url = `${API_BASE}/forms/${formId}/render?level=${level}`;
-        if (processInstanceId) {
-            url += `&processInstanceId=${processInstanceId}`;
+        if (formInstanceId) {
+            url += `&formInstanceId=${formInstanceId}`;
         }
         
         const response = await fetch(url);

@@ -5,7 +5,7 @@ import java.util.Map;
 
 @Data
 public class FormSubmissionDTO {
-    private String processInstanceId;
+    private String formInstanceId; // Form Instance ID - THE PRIMARY IDENTIFIER
     private Long formId;
     private Integer currentLevel;
     private String userRole;

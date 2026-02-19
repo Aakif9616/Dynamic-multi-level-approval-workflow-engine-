@@ -3,6 +3,7 @@ package com.workflow.controller;
 import com.workflow.dto.*;
 import com.workflow.entity.*;
 import com.workflow.service.WorkflowService;
+import com.workflow.service.FormInstanceService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -16,6 +17,7 @@ import java.util.Map;
 public class WorkflowController {
     
     private final WorkflowService workflowService;
+    private final FormInstanceService formInstanceService;
     
     @PostMapping("/requests")
     public ResponseEntity<?> createRequest(@RequestBody WorkflowRequestDTO dto) {
@@ -78,5 +80,27 @@ public class WorkflowController {
     @GetMapping("/requests/all")
     public ResponseEntity<List<WorkflowRequest>> getAllRequests(@RequestParam String role) {
         return ResponseEntity.ok(workflowService.getAllRequests(role));
+    }
+    
+    // NEW: Get Form Instance by Process Instance ID
+    @GetMapping("/form-instance/by-process/{processInstanceId}")
+    public ResponseEntity<FormInstance> getFormInstanceByProcess(@PathVariable String processInstanceId) {
+        try {
+            FormInstance formInstance = formInstanceService.getByProcessInstanceId(processInstanceId);
+            return ResponseEntity.ok(formInstance);
+        } catch (Exception e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+    
+    // NEW: Get Form Instance by Form Instance ID
+    @GetMapping("/form-instance/{formInstanceId}")
+    public ResponseEntity<FormInstance> getFormInstance(@PathVariable String formInstanceId) {
+        try {
+            FormInstance formInstance = formInstanceService.getByFormInstanceId(formInstanceId);
+            return ResponseEntity.ok(formInstance);
+        } catch (Exception e) {
+            return ResponseEntity.notFound().build();
+        }
     }
 }
