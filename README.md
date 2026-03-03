@@ -1,6 +1,6 @@
 # Dynamic Approval Workflow Engine with Camunda BPM
 
-A comprehensive Spring Boot application featuring a dynamic multi-level approval workflow system with Camunda BPM integration, RBAC (Role-Based Access Control), and customizable dynamic forms.
+A comprehensive Spring Boot application featuring a dynamic multi-level approval workflow system with Camunda BPM integration, RBAC (Role-Based Access Control), dynamic forms, and PostgreSQL database for persistent data storage.
 
 ## Features
 
@@ -33,15 +33,22 @@ A comprehensive Spring Boot application featuring a dynamic multi-level approval
   - **Editable at Levels**: Control which levels can edit each field
 - **Progressive Data Collection**: Same form flows through all levels, each level adds their data
 - **Field Validation**: Required fields, placeholder text, help text
-- **Data Persistence**: All form data stored in database linked to process instance
+- **Form Instance Tracking**: Unique Form Instance ID (FI-YYYYMMDD-NNNN) stays constant throughout workflow
 
-### 4. Admin Panel
+### 4. Form Instance Architecture
+- **Persistent Form Instance ID**: Each form submission gets a unique ID that never changes
+- **Format**: FI-YYYYMMDD-NNNN (e.g., FI-20240303-0001)
+- **Material ID Generation**: Generated at workflow completion as MAT-FI-YYYYMMDD-NNNN
+- **Data Linking**: All form data linked to Form Instance ID, not process instance
+- **Status Tracking**: DRAFT, IN_PROGRESS, COMPLETED, REJECTED
+
+### 5. Admin Panel
 - **Workflow Levels Management**: Create, edit, delete, and reorder approval levels
 - **Form Builder**: Complete UI for creating and managing dynamic forms
 - **Field Management**: Add, edit, delete, and reorder form fields
 - **Real-time Configuration**: Changes take effect immediately
 
-### 5. User Interface
+### 6. User Interface
 - **Request Creation**: Select form and fill fields at Level 1
 - **Task Management**: View and process pending tasks by role
 - **Task Details Modal**: View form data, previous level inputs, and add current level data
@@ -52,82 +59,206 @@ A comprehensive Spring Boot application featuring a dynamic multi-level approval
 
 - **Backend**: Spring Boot 3.2.0, Java 17
 - **Workflow Engine**: Camunda BPM 7.20.0
-- **Database**: H2 (in-memory, can be switched to PostgreSQL/MySQL)
+- **Database**: PostgreSQL (persistent storage)
 - **Frontend**: HTML5, JavaScript (ES6+), Bootstrap 5
 - **Build Tool**: Maven
 - **ORM**: Spring Data JPA with Hibernate
 
-## Quick Start
+## Prerequisites
 
-### Prerequisites
 - Java 17 or higher
 - Maven 3.6+
+- PostgreSQL 12+ installed
+- pgAdmin 4 (recommended for database management)
 
-### Running the Application
+## Database Setup
+
+### Step 1: Install PostgreSQL
+
+Download and install PostgreSQL from [postgresql.org](https://www.postgresql.org/download/)
+
+During installation:
+- Set password for postgres user (e.g., admin123)
+- Default port: 5432
+- Install pgAdmin 4 (included with PostgreSQL installer)
+
+### Step 2: Create Database
+
+1. Open **pgAdmin 4**
+2. Connect to PostgreSQL server (password: admin123)
+3. Right-click on **Databases** → **Create** → **Database**
+4. Enter database name: `workflow_db`
+5. Owner: `postgres`
+6. Click **Save**
+
+### Step 3: Configure Application
+
+The application is pre-configured for PostgreSQL in `src/main/resources/application.yml`:
+
+```yaml
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/workflow_db
+    username: postgres
+    password: admin123
+```
+
+**Important**: If your PostgreSQL password is different, update it in `application.yml`
+
+## Quick Start
+
+### 1. Clone Repository
 
 ```bash
-# Clone the repository
-git clone <repository-url>
-cd camunda-generic-workflow-engine
+git clone https://github.com/Aakif9616/Dynamic-multi-level-approval-workflow-engine-.git
+cd Dynamic-multi-level-approval-workflow-engine-
+```
 
-# Run the application
+### 2. Build Project
+
+```bash
+mvn clean install
+```
+
+### 3. Run Application
+
+```bash
 mvn spring-boot:run
 ```
 
 The application will start on `http://localhost:8080`
 
-### Default Access Points
+### 4. Verify Database Tables
+
+After starting the application, verify tables were created:
+
+1. Open **pgAdmin 4**
+2. Navigate to: `Servers → PostgreSQL → Databases → workflow_db → Schemas → public → Tables`
+3. Right-click **Tables** → **Refresh**
+4. You should see these tables:
+   - `form` - Form templates
+   - `form_field` - Form field definitions
+   - `form_data` - Form submission data
+   - `form_instance` - Form instance tracking (unique IDs)
+   - `workflow_level` - Workflow configuration
+   - `workflow_request` - Workflow requests
+   - `role` - RBAC roles
+   - `query_history` - Query tracking
+   - `material_master` - Material IDs
+   - Plus Camunda tables (act_*)
+
+## Accessing Tables in pgAdmin 4
+
+### Visual Navigation Path
+
+```
+pgAdmin 4
+└── Servers
+    └── PostgreSQL 16
+        └── Databases
+            └── workflow_db
+                └── Schemas
+                    └── public
+                        └── Tables ← YOUR TABLES ARE HERE
+                            ├── form
+                            ├── form_data
+                            ├── form_field
+                            ├── form_instance
+                            ├── workflow_level
+                            └── ... (more tables)
+```
+
+### View Table Data
+
+**Method 1: Right-Click Menu**
+1. Right-click on any table (e.g., `form_instance`)
+2. Select **View/Edit Data** → **All Rows**
+
+**Method 2: SQL Query**
+1. Right-click on `workflow_db`
+2. Select **Query Tool**
+3. Run queries:
+
+```sql
+-- View all form instances
+SELECT * FROM form_instance ORDER BY created_at DESC;
+
+-- View form data with instance ID
+SELECT fd.*, fi.form_instance_id 
+FROM form_data fd
+JOIN form_instance fi ON fd.form_instance_id = fi.form_instance_id
+ORDER BY fd.entered_at DESC;
+
+-- View completed workflows with Material IDs
+SELECT form_instance_id, material_id, status, completed_at
+FROM form_instance 
+WHERE status = 'COMPLETED';
+
+-- View workflow levels
+SELECT * FROM workflow_level ORDER BY level_order;
+
+-- View all forms
+SELECT * FROM form WHERE is_active = true;
+```
+
+## Default Access Points
 
 - **Main Application**: http://localhost:8080/
 - **Admin Panel**: http://localhost:8080/admin.html
-- **Camunda Cockpit**: http://localhost:8080/camunda (admin/admin)
-- **H2 Console**: http://localhost:8080/h2-console
-  - JDBC URL: `jdbc:h2:mem:workflowdb`
-  - Username: `sa`
-  - Password: (empty)
+- **Camunda Cockpit**: http://localhost:8080/camunda
+  - Username: `admin`
+  - Password: `admin`
 
 ## Usage Guide
 
 ### 1. Configure Workflow Levels
 
-1. Go to Admin Panel → Workflow Levels tab
+1. Go to **Admin Panel** → **Workflow Levels** tab
 2. Add levels (e.g., Level 1, Level 2, Level 3, Final Approver)
 3. Configure each level:
    - Level Name
-   - Role (auto-generated)
+   - Role (auto-generated as ROLE_LEVEL1, ROLE_LEVEL2, etc.)
    - Next Level
    - Query Return Level
-   - Mark final level
+   - Mark final level checkbox
 4. RBAC roles are automatically created/synced
 
 ### 2. Create Dynamic Forms
 
-1. Go to Admin Panel → Form Builder tab
-2. Click "Create New Form"
-3. Add fields to the form:
-   - Configure field type
-   - Set visibility (which levels can see)
-   - Set editability (which levels can edit)
+1. Go to **Admin Panel** → **Form Builder** tab
+2. Click **Create New Form**
+3. Enter form name (e.g., "Material Request Form")
+4. Add fields to the form:
+   - Select field type (TEXT, NUMBER, DROPDOWN, etc.)
+   - Set field label and properties
+   - Configure visibility (which levels can see this field)
+   - Configure editability (which levels can edit this field)
    - Add validation rules
-4. Activate the form
+5. Click **Save Form**
+6. Click **Activate** to make form available
 
 ### 3. Create Requests
 
-1. Go to Main Application
-2. Select a form (or use basic form)
-3. Fill in fields editable at Level 1
-4. Submit request
+1. Go to **Main Application** (http://localhost:8080)
+2. Select a form from dropdown
+3. Fill in fields that are editable at Level 1
+4. Click **Submit Request**
+5. Note the **Form Instance ID** displayed (e.g., FI-20240303-0001)
 
 ### 4. Process Approvals
 
-1. Select your role from dropdown
-2. Click "Load Tasks"
-3. Open a task to view:
+1. Select your role from dropdown (e.g., ROLE_LEVEL2)
+2. Click **Load Tasks**
+3. Click on a task to open details modal
+4. View:
    - Previous level data (read-only)
    - Current level editable fields
-4. Fill your level's fields
-5. Choose action: Approve, Reject, or Query
-6. Submit decision
+5. Fill your level's fields
+6. Choose action:
+   - **Approve** - Move to next level
+   - **Reject** - Send back to Level 1
+   - **Query** - Ask Level 1 a question
+7. Click **Submit Decision**
 
 ### 5. Handle Queries
 
@@ -139,9 +270,17 @@ The application will start on `http://localhost:8080`
 ### 6. Handle Rejections
 
 - **Reject**: Any level can reject and send to Level 1
-- **Review**: Level 1 reviews the rejection
+- **Review**: Level 1 reviews the rejection reason
 - **Resubmit**: Level 1 fixes issues and resubmits to rejected level
 - **Cancel**: Level 1 can permanently cancel the request
+
+### 7. Material ID Generation
+
+When the final level approves:
+- Material ID is automatically generated
+- Format: MAT-FI-YYYYMMDD-NNNN (e.g., MAT-FI-20240303-0001)
+- Based on the Form Instance ID
+- Stored in `material_master` table
 
 ## Project Structure
 
@@ -154,19 +293,23 @@ src/main/java/com/workflow/
 │   └── WorkflowController.java
 ├── service/            # Business logic
 │   ├── DynamicFormService.java
+│   ├── FormInstanceService.java
 │   ├── RBACService.java
 │   └── WorkflowService.java
 ├── entity/             # JPA entities
 │   ├── Form.java
 │   ├── FormField.java
 │   ├── FormData.java
+│   ├── FormInstance.java
 │   ├── WorkflowLevel.java
 │   ├── WorkflowRequest.java
 │   ├── Role.java
 │   └── ...
 ├── repository/         # Data access layer
 ├── dto/               # Data transfer objects
-└── delegate/          # Camunda delegates
+├── delegate/          # Camunda delegates
+│   └── MaterialIdGeneratorDelegate.java
+└── WorkflowApplication.java
 
 src/main/resources/
 ├── processes/         # BPMN workflow definitions
@@ -178,15 +321,8 @@ src/main/resources/
 │   ├── app.js
 │   ├── admin.js
 │   └── styles.css
-├── application.yml   # Application configuration
+├── application.yml   # PostgreSQL configuration
 └── data.sql         # Initial data
-
-docs/                # Documentation
-├── ADMIN_PANEL_GUIDE.md
-├── AUTO_SYNC_GUIDE.md
-├── FORM_BUILDER_GUIDE.md
-├── WORKFLOW_FORMS_GUIDE.md
-└── ...
 ```
 
 ## API Endpoints
@@ -215,35 +351,31 @@ docs/                # Documentation
 - `GET /api/rbac/roles` - Get all roles
 - `GET /api/rbac/permissions` - Get all permissions
 
-## Configuration
+## Key Architecture Concepts
 
-### Database Configuration (application.yml)
+### Form Instance ID - The "Aakif" Concept
 
-```yaml
-spring:
-  datasource:
-    url: jdbc:h2:mem:workflowdb
-    driver-class-name: org.h2.Driver
-    username: sa
-    password:
-  jpa:
-    hibernate:
-      ddl-auto: create-drop  # Change to 'update' for production
+Think of Form Instance ID like a person named "Aakif":
+- Aakif goes to college, home, and vacation
+- In all these places, it's the **same Aakif** (same person)
+- Similarly, Form Instance ID **stays constant** throughout the entire workflow
+
+**Example Flow**:
+```
+1. User submits form → Form Instance ID created: FI-20240303-0001
+2. Level 1 approves → Form Instance ID: FI-20240303-0001 (same)
+3. Level 2 approves → Form Instance ID: FI-20240303-0001 (same)
+4. Level 3 approves → Form Instance ID: FI-20240303-0001 (same)
+5. Material ID generated → MAT-FI-20240303-0001 (based on Form Instance ID)
 ```
 
-### Camunda Configuration
+### Data Persistence
 
-```yaml
-camunda:
-  bpm:
-    admin-user:
-      id: admin
-      password: admin
-    filter:
-      create: All tasks
-```
-
-## Key Features Explained
+Unlike in-memory databases, PostgreSQL provides:
+- **Permanent Storage**: Data survives application restarts
+- **Query Capability**: Use pgAdmin to query and analyze data
+- **Production Ready**: Suitable for real-world deployments
+- **Backup & Recovery**: Standard PostgreSQL backup tools work
 
 ### Progressive Form Data Collection
 
@@ -262,16 +394,47 @@ When you add/edit/delete workflow levels:
 - Final level gets admin permissions
 - No manual RBAC management needed
 
-### Query Routing
+## Troubleshooting
 
-```
-Level 3 raises query → Level 1 receives → Level 1 responds → Level 3 receives response → Level 3 continues
+### Application Won't Start
+
+**Error**: "database workflow_db does not exist"
+**Solution**: Create database in pgAdmin (see Database Setup section)
+
+**Error**: "password authentication failed"
+**Solution**: Update password in `application.yml` to match your PostgreSQL password
+
+### Can't See Tables in pgAdmin
+
+**Solution**: 
+1. Make sure application has started successfully
+2. Right-click **Tables** → **Refresh**
+3. Check you're looking in: workflow_db → Schemas → public → Tables
+
+### Port Already in Use
+
+```bash
+# Windows
+netstat -ano | findstr :8080
+taskkill /PID <PID> /F
 ```
 
-### Rejection Routing
+### Browser Cache Issues
 
-```
-Level 3 rejects → Level 1 receives → Level 1 fixes → Resubmits to Level 3 → Level 3 reviews again
+Always hard refresh after code changes:
+- Windows: `Ctrl + Shift + R` or `Ctrl + F5`
+- Mac: `Cmd + Shift + R`
+
+### PostgreSQL Service Not Running
+
+**Windows**:
+1. Open Services (Win + R → services.msc)
+2. Find "postgresql-x64-16" service
+3. Right-click → Start
+
+**Linux**:
+```bash
+sudo systemctl start postgresql
 ```
 
 ## Development
@@ -298,72 +461,60 @@ The JAR file will be created in `target/` directory.
 
 ## Production Deployment
 
-### Database Configuration
-
-For production, switch to a persistent database:
-
-```yaml
-spring:
-  datasource:
-    url: jdbc:postgresql://localhost:5432/workflowdb
-    username: your_username
-    password: your_password
-  jpa:
-    hibernate:
-      ddl-auto: update
-```
-
 ### Security Considerations
 
-1. Change default Camunda admin credentials
-2. Implement proper authentication/authorization
-3. Use HTTPS in production
-4. Secure H2 console or disable it
-5. Configure CORS properly
-6. Use environment variables for sensitive data
+1. **Change Default Credentials**:
+   - Update Camunda admin password in `application.yml`
+   - Use strong PostgreSQL password
 
-## Troubleshooting
+2. **Environment Variables**:
+   ```yaml
+   spring:
+     datasource:
+       url: ${DB_URL:jdbc:postgresql://localhost:5432/workflow_db}
+       username: ${DB_USERNAME:postgres}
+       password: ${DB_PASSWORD}
+   ```
 
-### Port Already in Use
+3. **Enable HTTPS**: Configure SSL/TLS certificates
 
+4. **Implement Authentication**: Add Spring Security for user authentication
+
+5. **Configure CORS**: Restrict allowed origins
+
+6. **Database Backup**: Set up regular PostgreSQL backups
+
+### Running as Service
+
+**Windows**:
 ```bash
-# Windows
-netstat -ano | findstr :8080
-taskkill /PID <PID> /F
-
-# Linux/Mac
-lsof -i :8080
-kill -9 <PID>
+# Create Windows Service using NSSM or similar
+nssm install WorkflowApp "java" "-jar target/dynamic-approval-workflow-1.0.0.jar"
 ```
 
-### Browser Cache Issues
+**Linux (systemd)**:
+```bash
+# Create /etc/systemd/system/workflow.service
+[Unit]
+Description=Dynamic Approval Workflow
+After=postgresql.service
 
-Always hard refresh after code changes:
-- Windows: `Ctrl + Shift + R` or `Ctrl + F5`
-- Mac: `Cmd + Shift + R`
+[Service]
+User=workflow
+ExecStart=/usr/bin/java -jar /opt/workflow/app.jar
+Restart=always
 
-### Database Reset
-
-The H2 database resets on application restart (create-drop mode). For persistent data, switch to update mode or use external database.
-
-## Documentation
-
-Detailed guides available in the `docs/` directory:
-
-- **ADMIN_PANEL_GUIDE.md** - Complete admin panel usage
-- **FORM_BUILDER_GUIDE.md** - Creating and managing forms
-- **WORKFLOW_FORMS_GUIDE.md** - Understanding form flow
-- **AUTO_SYNC_GUIDE.md** - RBAC auto-sync explained
-- **TESTING_GUIDE.md** - Step-by-step testing guide
-- **QUICK_START.md** - Quick start guide
+[Install]
+WantedBy=multi-user.target
+```
 
 ## Contributing
 
 1. Fork the repository
-2. Create a feature branch
-3. Commit your changes
-4. Push to the branch
-5. Create a Pull Request
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
 ## License
 
@@ -372,12 +523,14 @@ This project is licensed under the MIT License.
 ## Support
 
 For issues and questions:
-- Check the documentation in `docs/` folder
-- Review the troubleshooting section
+- Check the troubleshooting section
+- Review pgAdmin tables for data verification
 - Check browser console and backend logs for errors
+- Open an issue on GitHub
 
 ## Acknowledgments
 
 - Camunda BPM for the workflow engine
 - Spring Boot for the application framework
+- PostgreSQL for reliable data storage
 - Bootstrap for the UI components

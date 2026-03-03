@@ -34,5 +34,6 @@ build/
 ### Logs ###
 *.log
 
-### H2 Database ###
-*.db
+### Temporary Files ###
+*.rtf
+~$*
